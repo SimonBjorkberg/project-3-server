@@ -11,7 +11,13 @@ router.get("/single/:userId", (req, res, next) => {
   // finds the user using the ID and populates the reviews & products arrays
   User.findById(userId)
     .populate("productsLiked")
-    .populate("reviews")
+    .populate({
+      path: "reviews",
+      populate: {
+        path: "author",
+        select: "username image"
+      }
+    })
     .populate("products")
     .then((foundUser) => {
       // if there is no user it will return a message
@@ -46,73 +52,53 @@ router.get("/single/:userId", (req, res, next) => {
     });
 });
 
-router.put("/edit/:userId/info", isAuthenticated, (req, res, next) => {
+router.put("/edit/:userId/info", isAuthenticated, async (req, res, next) => {
+  const passwordRegex = /(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}/;
   const user = req.payload;
   const { username, password, currentPassword } = req.body;
-
-  console.log(req.body)
-
-  if (password && username) {
-    const passwordRegex = /(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}/;
-    if (!passwordRegex.test(password)) {
-      res.status(200).json({
-        message:
-          "Password must have at least 6 characters and contain at least one number, one lowercase and one uppercase letter.",
-      });
-      return;
-    }
-    bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
-      if (err) {
-        return res
-          .statusMessage(500)
-          .json({ message: "Password hashing error" });
+  const { email } = user;
+  try {
+    const foundUser = await User.findOne({ email });
+    if (password) {
+      const correctPassword = bcrypt.compareSync(
+        currentPassword,
+        foundUser.password
+      );
+      if (!correctPassword) {
+        return res.json({ errorMessage: "Invalid current password provided" });
+      } else if (!passwordRegex.test(password)) {
+        res.json({
+          errorMessage:
+            "Password must have at least 6 characters and contain at least one number, one lowercase and one uppercase letter.",
+        });
+      } else if (correctPassword && currentPassword === password) {
+        return res.json({
+          errorMessage: "Can not change to the same password",
+        });
+      } else {
+        const hashedPassword = bcrypt.hashSync(password, saltRounds);
+        await User.findOneAndUpdate(
+          { email },
+          { password: hashedPassword },
+          { new: true }
+        );
+        res.json({ message: "changed password" });
       }
-      User.findByIdAndUpdate(
-        user._id,
-        { username, password: hashedPassword },
-        { new: true }
-      ).then((foundUser) => {
-        const { username } = foundUser;
-        return res.status(200).json({ username });
-      });
-    });
-  } else if (password) {
-    const passwordRegex = /(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}/;
-    if (!passwordRegex.test(password)) {
-      res.status(200).json({
-        errorMessage:
-          "Password must have at least 6 characters. It must contain one number & one uppercase letter",
-      });
-      return;
-    }
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
-      if (err) {
-        return res.status(500).json({ message: "Password hashing error" });
-      }
-
-      User.findByIdAndUpdate(
-        user._id,
-        { password: hashedPassword },
-        { new: true }
-      ).then((foundUser) => {
-        const { username } = foundUser;
-        return res.status(200).json({ username });
-      });
-    });
-  } else if (username) {
-    User.findOne({ username }).then((foundUser) => {
-      if (foundUser) {
+    } else if (username) {
+      const foundUsername = await User.findOne({ username });
+      if (foundUsername) {
         return res.json({ message: "Username taken" });
       } else {
-        User.findByIdAndUpdate(user._id, { username }, { new: true }).then(
-          (foundUser) => {
-            const { username } = foundUser;
-            // new user object that we will return to front end
-            return res.status(200).json({ username });
-          }
+        const updatedUser = await User.findByIdAndUpdate(
+          user._id,
+          { username },
+          { new: true }
         );
+        return res.json({ username: updatedUser.username });
       }
-    });
+    }
+  } catch (err) {
+    console.log(err);
   }
 });
 

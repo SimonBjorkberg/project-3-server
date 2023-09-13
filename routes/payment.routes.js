@@ -3,7 +3,7 @@ const router = express.Router();
 const { isAuthenticated } = require("../middleware/jwt.middleware");
 const cors = require("cors");
 
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_TEST);
 
 router.post("/charge", async (req, res) => {
   let { amount, id } = req.body;
@@ -18,19 +18,27 @@ router.post("/charge", async (req, res) => {
         allow_redirects: "always",
         enabled: "true",
       },
+      return_url: "http://localhost:3000/stripe/thank-you",
     });
-    console.log(payment);
     res.json({
       message: "Payment made",
       success: true,
     });
   } catch (error) {
-    console.log("erreur...", error);
+    console.log("error", error);
     res.json({
       message: "payment failed",
       success: false,
     });
   }
+});
+
+router.get("/thank-you", (req, res, next) => {
+  res.json("payment successful");
+});
+
+router.get("/card-declined", (req, res, next) => {
+  res.json("card declined");
 });
 
 module.exports = router;

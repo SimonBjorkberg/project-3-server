@@ -3,12 +3,11 @@ const router = express.Router();
 const Order = require("../models/Order.model");
 const { isAuthenticated } = require("../middleware/jwt.middleware");
 const User = require("../models/User.model");
+const Product = require("../models/Product.model");
 
 router.post("/create", isAuthenticated, async (req, res, next) => {
   const user = req.payload;
   const { products, totalAmount } = req.body;
-
-  console.log("products", products);
 
   try {
     const newOrder = await Order.create({
@@ -21,9 +20,20 @@ router.post("/create", isAuthenticated, async (req, res, next) => {
       $push: { orders: newOrder._id },
     });
 
+    products.forEach((product) => {
+      Product.findById(product._id).then((response) => {
+        Product.findByIdAndUpdate(
+          product._id,
+          { quantity: response.quantity - product.quantity },
+          { new: true }
+        ).then((response) => {
+        });
+      });
+    });
+
     return res.status(201).json({ message: "Commande créée", newOrder });
   } catch (err) {
-    console.error(err);
+    console.error("catch error", err);
     return res
       .status(500)
       .json({ message: "Erreur lors de la création de la commande" });
