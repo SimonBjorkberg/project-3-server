@@ -28,7 +28,10 @@ router.post("/create", isAuthenticated, async (req, res, next) => {
           { new: true }
         ).then((response) => {
         });
-      });
+      })
+      .catch((err) => {
+        console.log(err)
+      })
     });
 
     return res.status(201).json({ message: "Commande créée", newOrder });

@@ -15,10 +15,11 @@ router.get("/single/:userId", (req, res, next) => {
       path: "reviews",
       populate: {
         path: "author",
-        select: "username image"
-      }
+        select: "username image",
+      },
     })
     .populate("products")
+    .populate("orders")
     .then((foundUser) => {
       // if there is no user it will return a message
       if (!foundUser) {
@@ -34,6 +35,7 @@ router.get("/single/:userId", (req, res, next) => {
           products,
           image,
           productsLiked,
+          orders,
         } = foundUser;
         // new user object that we will return to front end
         const user = {
@@ -45,6 +47,7 @@ router.get("/single/:userId", (req, res, next) => {
           products,
           image,
           productsLiked,
+          orders,
         };
         // returns the user and a message to the front end
         return res.status(200).json({ user, message: "User found" });
